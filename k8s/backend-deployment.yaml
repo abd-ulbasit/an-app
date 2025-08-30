@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          image: <ECR_BACKEND>:latest
+          ports:
+            - containerPort: 4000
+          env:
+            - name: POSTGRES_DB
+              value: "guestbook"
+            - name: POSTGRES_USER
+              value: "postgres"
+            - name: POSTGRES_PASSWORD
+              value: "postgres123"
+            - name: POSTGRES_HOST
+              value: "<RDS_ENDPOINT>"

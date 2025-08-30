@@ -1,0 +1,31 @@
+---
+- name: Install ArgoCD in EKS cluster
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  tasks:
+      - name: Install ArgoCD using kubectl
+        shell: |
+            kubectl create namespace argocd || true
+            kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+        args:
+            executable: /bin/bash
+        register: argocd_install
+
+      - name: Wait for ArgoCD server pod to be ready
+        shell: |
+            kubectl wait --namespace argocd --for=condition=Ready pod -l app.kubernetes.io/name=argocd-server --timeout=180s
+        args:
+            executable: /bin/bash
+        register: argocd_wait
+
+      - name: Get ArgoCD server service info
+        shell: |
+            kubectl get svc -n argocd argocd-server -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+        args:
+            executable: /bin/bash
+        register: argocd_hostname
+
+      - name: Show ArgoCD server endpoint
+        debug:
+            msg: "ArgoCD endpoint:  http://{{ argocd_hostname.stdout }}"

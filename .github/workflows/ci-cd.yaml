@@ -1,0 +1,66 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: ap-south-1
+      ECR_FRONTEND: ${{ secrets.ECR_FRONTEND }}
+      ECR_BACKEND: ${{ secrets.ECR_BACKEND }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push frontend Docker image
+        run: |
+          docker build -t $ECR_FRONTEND:latest ./frontend
+          docker push $ECR_FRONTEND:latest
+
+      - name: Build and push backend Docker image
+        run: |
+          docker build -t $ECR_BACKEND:latest ./backend
+          docker push $ECR_BACKEND:latest
+
+      - name: Update K8s manifests with new image tags
+        run: |
+          sed -i "s|image: .*/frontend:.*|image: $ECR_FRONTEND:latest|" k8s/frontend-deployment.yaml
+          sed -i "s|image: .*/backend:.*|image: $ECR_BACKEND:latest|" k8s/backend-deployment.yaml
+
+      - name: Fetch latest RDS endpoint from Terraform output
+        id: rds_endpoint
+        run: |
+          RDS_ENDPOINT=$(terraform -chdir=infra output -raw rds_endpoint)
+          echo "RDS_ENDPOINT=$RDS_ENDPOINT" >> $GITHUB_ENV
+
+      - name: Inject RDS endpoint into backend-deployment.yaml
+        run: |
+          sed -i "s|value: \"<RDS_ENDPOINT>\"|value: \"$RDS_ENDPOINT\"|" k8s/backend-deployment.yaml
+
+      - name: Commit and push manifest changes
+        uses: EndBug/add-and-commit@v9
+        with:
+          message: "Update image tags in K8s manifests"
+          add: "k8s/*.yaml"
+
+      - name: Trigger ArgoCD sync (optional)
+        run: |
+          # Example: curl -X POST http://<argocd-server-endpoint>/api/v1/applications/guestbook-app/sync
+          echo "Trigger ArgoCD sync here if needed."
