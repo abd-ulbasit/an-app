@@ -35,7 +35,6 @@ jobs:
 
 
       - name: Fetch ECR repository URIs
-        id: ecr_uris
         run: |
           ECR_BACKEND=$(aws ecr describe-repositories --repository-names backend --query "repositories[0].repositoryUri" --output text)
           ECR_FRONTEND=$(aws ecr describe-repositories --repository-names frontend --query "repositories[0].repositoryUri" --output text)
