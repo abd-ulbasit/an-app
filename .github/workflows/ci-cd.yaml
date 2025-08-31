@@ -1,4 +1,6 @@
 name: CI/CD Pipeline
+permissions:
+  contents: write
 
 on:
   push:
@@ -64,7 +66,7 @@ jobs:
         with:
           message: "Update image tags in K8s manifests"
           add: "k8s/*.yaml"
-          github_token: ${{ secrets.GH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Trigger ArgoCD sync (optional)
         run: |
