@@ -64,7 +64,7 @@ jobs:
         with:
           message: "Update image tags in K8s manifests"
           add: "k8s/*.yaml"
-        # NOTE: To fix push permissions, add a Personal Access Token (PAT) with repo write access as a secret and use it in the workflow.
+          github_token: ${{ secrets.GH_PAT }}
 
       - name: Trigger ArgoCD sync (optional)
         run: |
