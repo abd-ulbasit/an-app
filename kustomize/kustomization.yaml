@@ -1,0 +1,4 @@
+resources:
+  - ../k8s/frontend-deployment.yaml
+  - ../k8s/backend-deployment.yaml
+  - ../k8s/frontend-service.yaml

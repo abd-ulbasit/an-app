@@ -1,17 +1,21 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: guestbook-app
+  name: guestbook-app-helm
   namespace: argocd
 spec:
   project: default
   source:
     repoURL: 'https://github.com/abd-ulbasit/an-app'
     targetRevision: main
-    path: k8s
+    path: charts/guestbook
+    helm:
+      valueFiles:
+        - values.yaml
   destination:
     server: https://kubernetes.default.svc
     namespace: default
   syncPolicy:
     automated:
       prune: true
+      selfHeal: true

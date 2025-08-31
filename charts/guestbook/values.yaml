@@ -1,0 +1,7 @@
+frontend:
+  image: "<ECR_FRONTEND>:latest"
+backend:
+  image: "<ECR_BACKEND>:latest"
+  rdsEndpoint: "<RDS_ENDPOINT>"
+service:
+  type: LoadBalancer
