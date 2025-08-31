@@ -13,8 +13,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       AWS_REGION: ap-south-1
-      ECR_FRONTEND: ${{ secrets.ECR_FRONTEND }}
-      ECR_BACKEND: ${{ secrets.ECR_BACKEND }}
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
     steps:
@@ -35,8 +33,18 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
+
+      - name: Fetch ECR repository URIs
+        id: ecr_uris
+        run: |
+          ECR_BACKEND=$(aws ecr describe-repositories --repository-names backend --query "repositories[0].repositoryUri" --output text)
+          ECR_FRONTEND=$(aws ecr describe-repositories --repository-names frontend --query "repositories[0].repositoryUri" --output text)
+          echo "ECR_BACKEND=$ECR_BACKEND" >> $GITHUB_ENV
+          echo "ECR_FRONTEND=$ECR_FRONTEND" >> $GITHUB_ENV
+
       - name: Build and push frontend Docker image
         run: |
+          ECR_FRONTEND=$(cat $GITHUB_ENV | grep ECR_FRONTEND | cut -d'=' -f2)
           docker build -t $ECR_FRONTEND:latest ./frontend
           docker push $ECR_FRONTEND:latest
 
@@ -50,16 +58,21 @@ jobs:
 
       - name: Build and push backend Docker image
         run: |
+          ECR_BACKEND=$(cat $GITHUB_ENV | grep ECR_BACKEND | cut -d'=' -f2)
           docker build -t $ECR_BACKEND:latest ./backend
           docker push $ECR_BACKEND:latest
 
       - name: Debug ECR image URIs
         run: |
+          ECR_FRONTEND=$(cat $GITHUB_ENV | grep ECR_FRONTEND | cut -d'=' -f2)
+          ECR_BACKEND=$(cat $GITHUB_ENV | grep ECR_BACKEND | cut -d'=' -f2)
           echo "ECR_FRONTEND: $ECR_FRONTEND"
           echo "ECR_BACKEND: $ECR_BACKEND"
 
       - name: Update K8s manifests with new image tags
         run: |
+          ECR_FRONTEND=$(cat $GITHUB_ENV | grep ECR_FRONTEND | cut -d'=' -f2)
+          ECR_BACKEND=$(cat $GITHUB_ENV | grep ECR_BACKEND | cut -d'=' -f2)
           sed -i "s|image: .*/frontend:.*|image: $ECR_FRONTEND:latest|" k8s/frontend-deployment.yaml
           sed -i "s|image: .*/backend:.*|image: $ECR_BACKEND:latest|" k8s/backend-deployment.yaml
           echo "Updated frontend image line:"
