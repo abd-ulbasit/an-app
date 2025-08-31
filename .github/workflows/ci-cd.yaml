@@ -39,6 +39,14 @@ jobs:
           docker build -t $ECR_FRONTEND:latest ./frontend
           docker push $ECR_FRONTEND:latest
 
+      - name: Fetch ECR repository URIs
+        id: ecr_uris
+        run: |
+          export ECR_BACKEND=$(aws ecr describe-repositories --repository-names backend --query "repositories[0].repositoryUri" --output text)
+          export ECR_FRONTEND=$(aws ecr describe-repositories --repository-names frontend --query "repositories[0].repositoryUri" --output text)
+          echo "ECR_BACKEND=$ECR_BACKEND" >> $GITHUB_ENV
+          echo "ECR_FRONTEND=$ECR_FRONTEND" >> $GITHUB_ENV
+
       - name: Build and push backend Docker image
         run: |
           docker build -t $ECR_BACKEND:latest ./backend
