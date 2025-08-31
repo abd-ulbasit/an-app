@@ -25,4 +25,4 @@ spec:
             - name: POSTGRES_PASSWORD
               value: "postgres123"
             - name: POSTGRES_HOST
-              value: "<RDS_ENDPOINT>"
+              value: "[command]/home/runner/work/_temp/e49f9d89-777c-4222-8664-3f88f2510cf4/terraform-bin -chdir=infra output -raw rds_endpoint"
