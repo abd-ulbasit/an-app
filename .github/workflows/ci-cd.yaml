@@ -53,7 +53,7 @@ jobs:
       - name: Fetch latest RDS endpoint from Terraform output
         id: rds_endpoint
         run: |
-          echo "RDS_ENDPOINT=$(terraform -chdir=infra output -raw rds_endpoint 2>/dev/null)" >> $GITHUB_ENV
+          echo "::set-output name=RDS_ENDPOINT::$(terraform -chdir=infra output -raw rds_endpoint 2>/dev/null)"
 
       - name: Inject RDS endpoint into backend-deployment.yaml
         run: |
