@@ -47,6 +47,9 @@ jobs:
           sed -i "s|image: .*/frontend:.*|image: $ECR_FRONTEND:latest|" k8s/frontend-deployment.yaml
           sed -i "s|image: .*/backend:.*|image: $ECR_BACKEND:latest|" k8s/backend-deployment.yaml
 
+      - name: Terraform Init
+        run: terraform -chdir=infra init
+
       - name: Fetch latest RDS endpoint from Terraform output
         id: rds_endpoint
         run: |
