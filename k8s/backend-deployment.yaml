@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: <ECR_BACKEND>:latest
+          image: 558162184856.dkr.ecr.ap-south-1.amazonaws.com/backend:latest
           ports:
             - containerPort: 4000
           env:
@@ -25,4 +25,7 @@ spec:
             - name: POSTGRES_PASSWORD
               value: "postgres123"
             - name: POSTGRES_HOST
-              value: ""
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: RDS_ENDPOINT
