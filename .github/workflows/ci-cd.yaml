@@ -59,11 +59,7 @@ jobs:
           echo "ECR_BACKEND=$ECR_BACKEND" >> $GITHUB_ENV
           echo "ECR_FRONTEND=$ECR_FRONTEND" >> $GITHUB_ENV
 
-      - name: Build and push backend Docker image
-        run: |
-          ECR_BACKEND=$(cat $GITHUB_ENV | grep ECR_BACKEND | cut -d'=' -f2)
-          docker build -t $ECR_BACKEND:latest ./backend
-          docker push $ECR_BACKEND:latest
+  # Duplicate backend build/push step removed. Only use consolidated build/push step above.
 
       - name: Debug ECR image URIs
         run: |
