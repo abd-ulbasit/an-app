@@ -51,13 +51,6 @@ jobs:
           echo "ECR_BACKEND=$ECR_BACKEND" >> $GITHUB_ENV
           echo "ECR_FRONTEND=$ECR_FRONTEND" >> $GITHUB_ENV
 
-      - name: Fetch ECR repository URIs
-        id: ecr_uris
-        run: |
-          export ECR_BACKEND=$(aws ecr describe-repositories --repository-names backend --query "repositories[0].repositoryUri" --output text)
-          export ECR_FRONTEND=$(aws ecr describe-repositories --repository-names frontend --query "repositories[0].repositoryUri" --output text)
-          echo "ECR_BACKEND=$ECR_BACKEND" >> $GITHUB_ENV
-          echo "ECR_FRONTEND=$ECR_FRONTEND" >> $GITHUB_ENV
 
   # Duplicate backend build/push step removed. Only use consolidated build/push step above.
 
@@ -86,9 +79,8 @@ jobs:
         run: |
           TF_BIN=${TERRAFORM_CLI_PATH:-terraform}
           RDS_ENDPOINT=$($TF_BIN -chdir=infra output -raw rds_endpoint 2>/dev/null | head -n 1)
-          echo "Fetched RDS_ENDPOINT: $RDS_ENDPOINT"
           if [ -z "$RDS_ENDPOINT" ]; then
-            echo "WARNING: RDS_ENDPOINT is empty. Check Terraform output and AWS permissions. Continuing for debugging..."
+            echo "WARNING: RDS_ENDPOINT is empty. Check Terraform output and AWS permissions."
           fi
           echo "RDS_ENDPOINT=$RDS_ENDPOINT" >> $GITHUB_ENV
 
