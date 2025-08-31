@@ -39,19 +39,29 @@ jobs:
           ECR_BACKEND=$(aws ecr describe-repositories --repository-names backend --query "repositories[0].repositoryUri" --output text)
           ECR_FRONTEND=$(aws ecr describe-repositories --repository-names frontend --query "repositories[0].repositoryUri" --output text)
           echo "ECR_BACKEND=$ECR_BACKEND" >> $GITHUB_ENV
+          - name: Fetch ECR repository URIs and build/push images
+            run: |
+              ECR_BACKEND=$(aws ecr describe-repositories --repository-names backend --query "repositories[0].repositoryUri" --output text)
+              ECR_FRONTEND=$(aws ecr describe-repositories --repository-names frontend --query "repositories[0].repositoryUri" --output text)
+              echo "Fetched ECR_BACKEND: $ECR_BACKEND"
+              echo "Fetched ECR_FRONTEND: $ECR_FRONTEND"
+              if [ -z "$ECR_BACKEND" ] || [ -z "$ECR_FRONTEND" ]; then
+                echo "ERROR: ECR_BACKEND or ECR_FRONTEND is empty. Check ECR repository names and AWS permissions."
+                exit 1
+              fi
+              docker build -t $ECR_FRONTEND:latest ./frontend
+              docker push $ECR_FRONTEND:latest
+              docker build -t $ECR_BACKEND:latest ./backend
+              docker push $ECR_BACKEND:latest
+              echo "ECR_BACKEND=$ECR_BACKEND" >> $GITHUB_ENV
+              echo "ECR_FRONTEND=$ECR_FRONTEND" >> $GITHUB_ENV
+
           echo "ECR_FRONTEND=$ECR_FRONTEND" >> $GITHUB_ENV
           echo "Fetched ECR_BACKEND: $ECR_BACKEND"
           echo "Fetched ECR_FRONTEND: $ECR_FRONTEND"
           if [ -z "$ECR_BACKEND" ] || [ -z "$ECR_FRONTEND" ]; then
             echo "ERROR: ECR_BACKEND or ECR_FRONTEND is empty. Check ECR repository names and AWS permissions."
             exit 1
-          fi
-
-      - name: Build and push frontend Docker image
-        run: |
-          ECR_FRONTEND=$(cat $GITHUB_ENV | grep ECR_FRONTEND | cut -d'=' -f2)
-          docker build -t $ECR_FRONTEND:latest ./frontend
-          docker push $ECR_FRONTEND:latest
 
       - name: Fetch ECR repository URIs
         id: ecr_uris
