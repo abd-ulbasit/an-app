@@ -61,12 +61,13 @@ jobs:
         run: terraform -chdir=infra init
 
       - name: Fetch latest RDS endpoint from Terraform output
-        id: rds_endpoint
         run: |
-          echo "RDS_ENDPOINT=$(terraform -chdir=infra output -raw rds_endpoint 2>/dev/null | head -n 1)" >> $GITHUB_ENV
+          RDS_ENDPOINT=$(terraform -chdir=infra output -raw rds_endpoint 2>/dev/null | head -n 1)
+          echo "RDS_ENDPOINT=$RDS_ENDPOINT" >> $GITHUB_ENV
 
       - name: Inject RDS endpoint into backend-deployment.yaml
         run: |
+          RDS_ENDPOINT=$(cat $GITHUB_ENV | grep RDS_ENDPOINT | cut -d'=' -f2)
           sed -i "s|value: \"<RDS_ENDPOINT>\"|value: \"$RDS_ENDPOINT\"|" k8s/backend-deployment.yaml
 
       - name: Commit and push manifest changes
