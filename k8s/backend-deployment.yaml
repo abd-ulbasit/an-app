@@ -25,4 +25,4 @@ spec:
             - name: POSTGRES_PASSWORD
               value: "postgres123"
             - name: POSTGRES_HOST
-              value: "<RDS_ENDPOINT>"
+              value: ""
