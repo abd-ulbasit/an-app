@@ -1,3 +1,4 @@
+
 name: CI/CD Pipeline
 permissions:
   contents: write
@@ -52,10 +53,19 @@ jobs:
           docker build -t $ECR_BACKEND:latest ./backend
           docker push $ECR_BACKEND:latest
 
+      - name: Debug ECR image URIs
+        run: |
+          echo "ECR_FRONTEND: $ECR_FRONTEND"
+          echo "ECR_BACKEND: $ECR_BACKEND"
+
       - name: Update K8s manifests with new image tags
         run: |
           sed -i "s|image: .*/frontend:.*|image: $ECR_FRONTEND:latest|" k8s/frontend-deployment.yaml
           sed -i "s|image: .*/backend:.*|image: $ECR_BACKEND:latest|" k8s/backend-deployment.yaml
+          echo "Updated frontend image line:"
+          grep 'image:' k8s/frontend-deployment.yaml
+          echo "Updated backend image line:"
+          grep 'image:' k8s/backend-deployment.yaml
 
       - name: Terraform Init
         run: terraform -chdir=infra init
@@ -69,6 +79,11 @@ jobs:
         run: |
           RDS_ENDPOINT=$(cat $GITHUB_ENV | grep RDS_ENDPOINT | cut -d'=' -f2)
           sed -i "s|value: \"<RDS_ENDPOINT>\"|value: \"$RDS_ENDPOINT\"|" k8s/backend-deployment.yaml
+
+      - name: Debug RDS endpoint value
+        run: |
+          echo "RDS_ENDPOINT from Terraform output: $RDS_ENDPOINT"
+          cat $GITHUB_ENV | grep RDS_ENDPOINT
 
       - name: Commit and push manifest changes
         uses: EndBug/add-and-commit@v9
