@@ -40,6 +40,12 @@ jobs:
           ECR_FRONTEND=$(aws ecr describe-repositories --repository-names frontend --query "repositories[0].repositoryUri" --output text)
           echo "ECR_BACKEND=$ECR_BACKEND" >> $GITHUB_ENV
           echo "ECR_FRONTEND=$ECR_FRONTEND" >> $GITHUB_ENV
+          echo "Fetched ECR_BACKEND: $ECR_BACKEND"
+          echo "Fetched ECR_FRONTEND: $ECR_FRONTEND"
+          if [ -z "$ECR_BACKEND" ] || [ -z "$ECR_FRONTEND" ]; then
+            echo "ERROR: ECR_BACKEND or ECR_FRONTEND is empty. Check ECR repository names and AWS permissions."
+            exit 1
+          fi
 
       - name: Build and push frontend Docker image
         run: |
