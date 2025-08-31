@@ -84,7 +84,8 @@ jobs:
 
       - name: Fetch latest RDS endpoint from Terraform output
         run: |
-          RDS_ENDPOINT=$(terraform -chdir=infra output -raw rds_endpoint 2>/dev/null | head -n 1)
+          TF_BIN=${TERRAFORM_CLI_PATH:-terraform}
+          RDS_ENDPOINT=$($TF_BIN -chdir=infra output -raw rds_endpoint 2>/dev/null | head -n 1)
           echo "Fetched RDS_ENDPOINT: $RDS_ENDPOINT"
           if [ -z "$RDS_ENDPOINT" ]; then
             echo "WARNING: RDS_ENDPOINT is empty. Check Terraform output and AWS permissions. Continuing for debugging..."
