@@ -1,3 +1,5 @@
+# Project learning summary doc
+PROJECT_LEARNING_SUMMARY.md
 .terraform/
 infra/terraform.tfstate
 infra/terraform.tfstate.backup

@@ -4,6 +4,19 @@ variable "cluster_name" {
   default     = "guestbook-eks"
 }
 
+variable "aws_region" {
+  description = "AWS region for resources"
+  type        = string
+  default     = "ap-south-1"
+}
+
+
+variable "kubeconfig_path" {
+  description = "Path to kubeconfig file for Helm provider"
+  type        = string
+  default     = "~/.kube/config"
+}
+
 variable "db_name" {
   description = "RDS database name"
   type        = string

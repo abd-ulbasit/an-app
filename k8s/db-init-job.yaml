@@ -1,0 +1,35 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-init
+  namespace: default
+spec:
+  template:
+    spec:
+      containers:
+        - name: psql
+          image: postgres:15
+          env:
+            - name: POSTGRES_DB
+              value: "guestbook"
+            - name: POSTGRES_USER
+              value: "postgres"
+            - name: POSTGRES_PASSWORD
+              value: "postgres123"
+            - name: POSTGRES_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: RDS_ENDPOINT
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              psql "host=$POSTGRES_HOST dbname=$POSTGRES_DB user=$POSTGRES_USER password=$POSTGRES_PASSWORD" < /init/init.sql
+          volumeMounts:
+            - name: init-sql
+              mountPath: /init
+      restartPolicy: OnFailure
+      volumes:
+        - name: init-sql
+          configMap:
+            name: db-init-sql

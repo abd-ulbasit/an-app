@@ -1,0 +1,19 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ec2:*",
+                "elasticloadbalancing:*",
+                "acm:*",
+                "iam:*",
+                "cognito-idp:*",
+                "waf-regional:*",
+                "wafv2:*",
+                "shield:*"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
