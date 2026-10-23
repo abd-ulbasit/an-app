@@ -4,7 +4,7 @@
 - AWS CLI and jq
 - Docker
 - kubectl
-- Terraform
+- Terraform 1.11 or newer
 - Ansible
 - ArgoCD CLI (optional, for local sync)
 
