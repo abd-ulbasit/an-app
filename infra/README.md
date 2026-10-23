@@ -91,3 +91,19 @@ regenerate it with:
 ```sh
 terraform providers lock -platform=linux_amd64 -platform=darwin_arm64
 ```
+
+## Destroy
+
+`terraform destroy` keeps a final RDS snapshot named
+`<cluster_name>-postgres-final-<UTC time the instance was created>`. Each
+instance gets its own name, so destroying a recreated instance does not
+fail on an existing snapshot. The snapshots are kept, and billed, until
+you delete them:
+
+```sh
+aws rds describe-db-snapshots --region ap-south-1 --snapshot-type manual \
+  --query 'DBSnapshots[?starts_with(DBSnapshotIdentifier, `guestbook-eks-postgres-final-`)].[DBSnapshotIdentifier,SnapshotCreateTime]' \
+  --output table
+aws rds delete-db-snapshot --region ap-south-1 \
+  --db-snapshot-identifier <snapshot name>
+```

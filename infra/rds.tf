@@ -22,14 +22,23 @@ resource "aws_db_instance" "postgres" {
   publicly_accessible = false
 
   # Keep a final snapshot on destroy so `terraform destroy` cannot silently
-  # delete the data. Delete the snapshot by hand when it is no longer needed.
+  # delete the data. The name carries the time the instance was created
+  # (UTC), so every instance gets its own snapshot name: a fixed name made
+  # the second destroy after a recreate fail with DBSnapshotAlreadyExists,
+  # leaving the instance and the VPC running. ignore_changes keeps the name
+  # chosen at creation instead of a new one on every plan. Old snapshots
+  # are kept (and billed) until deleted by hand; see infra/README.md.
   skip_final_snapshot       = false
-  final_snapshot_identifier = "${var.cluster_name}-postgres-final"
+  final_snapshot_identifier = "${var.cluster_name}-postgres-final-${formatdate("YYYYMMDDhhmmss", plantimestamp())}"
   backup_retention_period   = 7
   copy_tags_to_snapshot     = true
 
   vpc_security_group_ids = [aws_security_group.db_sg.id]
   db_subnet_group_name   = aws_db_subnet_group.main.name
+
+  lifecycle {
+    ignore_changes = [final_snapshot_identifier]
+  }
 }
 
 resource "aws_db_subnet_group" "main" {
