@@ -11,7 +11,7 @@ helm upgrade --install aws-load-balancer-controller eks/aws-load-balancer-contro
   --set serviceAccount.create=false \
   --set serviceAccount.name=aws-load-balancer-controller \
   --set region=ap-south-1 \
-  --set vpcId=vpc-097ab8f9d8835d12c
+  --set vpcId="$(terraform -chdir=infra output -raw vpc_id)"
 ```
 
 - Ensure your kubeconfig context is set to your EKS cluster.

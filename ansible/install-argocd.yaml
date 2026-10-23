@@ -3,11 +3,19 @@
   hosts: localhost
   connection: local
   gather_facts: no
+  vars:
+      # Pinned release. The previous "stable" branch URL changed under us on
+      # every run, so two installs could get different Argo CD versions.
+      # Upgrade deliberately by changing this value.
+      argocd_version: v3.5.6
   tasks:
+      # Server-side apply as in the Argo CD install docs: the CRDs are too
+      # large for the client-side last-applied annotation.
       - name: Install ArgoCD using kubectl
         shell: |
             kubectl create namespace argocd || true
-            kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+            kubectl apply -n argocd --server-side --force-conflicts \
+              -f https://raw.githubusercontent.com/argoproj/argo-cd/{{ argocd_version }}/manifests/install.yaml
         args:
             executable: /bin/bash
         register: argocd_install
@@ -19,13 +27,8 @@
             executable: /bin/bash
         register: argocd_wait
 
-      - name: Get ArgoCD server service info
-        shell: |
-            kubectl get svc -n argocd argocd-server -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
-        args:
-            executable: /bin/bash
-        register: argocd_hostname
-
-      - name: Show ArgoCD server endpoint
+      # argocd-server is a ClusterIP Service in the stock install (no load
+      # balancer hostname), so reach it through a port-forward.
+      - name: Show how to reach ArgoCD
         debug:
-            msg: "ArgoCD endpoint:  http://{{ argocd_hostname.stdout }}"
+            msg: "ArgoCD is not exposed outside the cluster. Run: kubectl port-forward svc/argocd-server -n argocd 8080:443 and open https://localhost:8080"

@@ -1,47 +1,117 @@
-
 name: CI/CD Pipeline
-permissions:
-  contents: write
 
 on:
   push:
     branches:
       - main
+    # Only changes that affect the images trigger a build. This also means the
+    # manifest bump committed by update-manifests (k8s/ only) never retriggers
+    # the workflow, even if it is ever pushed with a token other than
+    # GITHUB_TOKEN.
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - ".github/workflows/ci-cd.yaml"
+
+# Nothing by default; each job asks for exactly what it needs.
+permissions: {}
+
+# One deploy at a time. A newer push waits instead of racing the manifest bump.
+concurrency:
+  group: ci-cd-main
+  cancel-in-progress: false
 
 jobs:
-  build-and-deploy:
+  build-and-push:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read # checkout
+      id-token: write # request the GitHub OIDC token for AWS STS
     env:
       AWS_REGION: ap-south-1
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      # Immutable tag: the commit that produced the image. Rolling back is a
+      # git revert of the manifest bump; no tag is ever overwritten.
+      IMAGE_TAG: ${{ github.sha }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install Terraform
-        uses: hashicorp/setup-terraform@v2
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          persist-credentials: false
+
+      # Short-lived credentials through GitHub OIDC; no stored AWS keys.
+      # vars.AWS_ROLE_ARN is the IAM role described in docs/ci-aws-oidc.md.
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          role-session-name: an-app-ci-${{ github.run_id }}
           aws-region: ${{ env.AWS_REGION }}
-
-
 
       - name: Login to Amazon ECR
         id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
 
-      - name: Build and push backend image
+      # ECR tags are immutable (docs/ci-aws-oidc.md, step 6). On a re-run
+      # after a partial failure, the image for this commit may already be in
+      # ECR. A rebuild has a different digest and its push would be rejected,
+      # so an image that already exists is kept and not rebuilt.
+      - name: Build and push images
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
-          docker build -t 558162184856.dkr.ecr.ap-south-1.amazonaws.com/backend:latest ./backend
-          docker push 558162184856.dkr.ecr.ap-south-1.amazonaws.com/backend:latest
+          for app in backend frontend; do
+            echo "::group::$app"
+            if out=$(aws ecr describe-images --repository-name "$app" \
+                --image-ids imageTag="$IMAGE_TAG" \
+                --query 'imageDetails[0].imageDigest' --output text 2>&1); then
+              echo "$app:$IMAGE_TAG is already in ECR ($out), skipping the build."
+            else
+              case "$out" in
+                *ImageNotFoundException*) ;;
+                *)
+                  echo "::warning::Could not check ECR for $app:$IMAGE_TAG, building and pushing anyway."
+                  echo "$out"
+                  ;;
+              esac
+              docker build -t "$REGISTRY/$app:$IMAGE_TAG" "./$app"
+              docker push "$REGISTRY/$app:$IMAGE_TAG"
+            fi
+            echo "::endgroup::"
+          done
 
-      - name: Build and push frontend image
+  # Point the Deployments at the new tag so Argo CD rolls the pods. This is the
+  # only job that can write to the repository, and it never sees AWS
+  # credentials.
+  update-manifests:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # push the manifest bump to main
+    env:
+      IMAGE_TAG: ${{ github.sha }}
+    steps:
+      # Checks out the commit that was built (github.sha). If main has moved
+      # on since, the push below is rejected as non-fast-forward and the newer
+      # run deploys instead, so an older build never overwrites a newer one.
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set image tags in the Deployments
         run: |
-          docker build -t 558162184856.dkr.ecr.ap-south-1.amazonaws.com/frontend:latest ./frontend
-          docker push 558162184856.dkr.ecr.ap-south-1.amazonaws.com/frontend:latest
+          sed -i -E "s#(\.amazonaws\.com/backend):[^[:space:]\"']+#\1:${IMAGE_TAG}#" k8s/backend-deployment.yaml
+          sed -i -E "s#(\.amazonaws\.com/frontend):[^[:space:]\"']+#\1:${IMAGE_TAG}#" k8s/frontend-deployment.yaml
+          git diff --stat
 
+      - name: Commit and push
+        run: |
+          if git diff --quiet; then
+            echo "Manifests already point at ${IMAGE_TAG}"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "deploy: set backend and frontend images to ${IMAGE_TAG}"
+          # A rule on main that requires pull requests, status checks or
+          # signed commits rejects this push. See docs/ci-aws-oidc.md,
+          # "Rules on main and the deploy push".
+          git push origin HEAD:refs/heads/main

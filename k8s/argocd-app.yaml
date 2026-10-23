@@ -9,6 +9,12 @@ spec:
     repoURL: 'https://github.com/abd-ulbasit/an-app'
     targetRevision: main
     path: k8s
+    directory:
+      recurse: false
+      # db-secret holds the real RDS endpoint and password and is created
+      # out-of-band with `kubectl create secret` (k8s/setup.md). Never let a
+      # committed placeholder or local copy overwrite it on auto-sync.
+      exclude: '*secret*.yaml'
   destination:
     server: https://kubernetes.default.svc
     namespace: default

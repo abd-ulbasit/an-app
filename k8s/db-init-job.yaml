@@ -6,30 +6,66 @@ metadata:
 spec:
   template:
     spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 70 # the postgres user in the Alpine postgres image
+        runAsGroup: 70
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: psql
-          image: postgres:15
+          # Client only; major 17 matches the RDS engine in infra/rds.tf.
+          # Dependabot proposes 17.x minor and patch updates (tag and
+          # digest). Change the major by hand, together with the RDS engine.
+          image: postgres:17.11-alpine3.24@sha256:eee6c6e1b0894fa4fe0075eb054af9fd1cf39a35321c2d4110626cfe506411fb
+          # psql reads the standard libpq PG* variables, so the password is
+          # never part of the command line (visible in ps and /proc).
           env:
-            - name: POSTGRES_DB
+            - name: PGDATABASE
               value: "guestbook"
-            - name: POSTGRES_USER
+            - name: PGUSER
               value: "postgres"
-            - name: POSTGRES_PASSWORD
-              value: "postgres123"
-            - name: POSTGRES_HOST
+            # db-secret is created out-of-band (k8s/setup.md), never from git.
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: POSTGRES_PASSWORD
+            - name: PGHOST
               valueFrom:
                 secretKeyRef:
                   name: db-secret
                   key: RDS_ENDPOINT
-          command: ["/bin/sh", "-c"]
-          args:
-            - |
-              psql "host=$POSTGRES_HOST dbname=$POSTGRES_DB user=$POSTGRES_USER password=$POSTGRES_PASSWORD" < /init/init.sql
+            # Require TLS and verify the RDS certificate and hostname.
+            - name: PGSSLMODE
+              value: "verify-full"
+            - name: PGSSLROOTCERT
+              value: /etc/rds-ca/rds-ca-bundle.pem
+          command: ["psql", "-v", "ON_ERROR_STOP=1", "-f", "/init/init.sql"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 64Mi
           volumeMounts:
             - name: init-sql
               mountPath: /init
+            - name: rds-ca
+              mountPath: /etc/rds-ca
+              readOnly: true
       restartPolicy: OnFailure
       volumes:
         - name: init-sql
           configMap:
             name: db-init-sql
+        - name: rds-ca
+          configMap:
+            name: rds-ca-bundle
