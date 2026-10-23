@@ -21,9 +21,33 @@ const pool = new Pool({
     port: 5432,
 });
 
-pool.connect()
+// An idle client can error out (e.g. RDS failover or a closed connection).
+// Without a listener the pool re-emits it as an unhandled 'error' event and
+// the process crashes.
+pool.on("error", (err) => console.error("Idle DB client error:", err));
+
+// Startup connectivity check. pool.query releases its client afterwards;
+// pool.connect() without release() leaked one connection per start.
+pool.query("SELECT 1")
     .then(() => console.log("Connected to PostgreSQL DB"))
     .catch((err) => console.error("DB connection error:", err));
+
+// Liveness: the process is up and serving HTTP. It deliberately does not
+// touch the DB, so a DB outage does not restart every backend pod.
+app.get("/healthz", (req, res) => {
+    res.sendStatus(200);
+});
+
+// Readiness: the DB answers. Kubernetes stops routing to the pod while not.
+app.get("/readyz", async (req, res) => {
+    try {
+        await pool.query("SELECT 1");
+        res.sendStatus(200);
+    } catch (err) {
+        console.error("Readiness check failed:", err.message);
+        res.sendStatus(503);
+    }
+});
 
 app.get("/api/entries", async (req, res) => {
     console.log("GET /api/entries request");
