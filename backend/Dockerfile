@@ -1,4 +1,6 @@
-# Node.js 24 is the active LTS line (Node 18 and 20 are end-of-life).
+# Node.js 24 LTS (Maintenance LTS since 2026-10-20, security fixes until
+# 2028-04-30; Node 18 and 20 are end-of-life). Node 26 becomes Active LTS
+# on 2026-10-28; Dependabot will propose that major as a normal PR.
 # The digest pins the exact image; Dependabot (.github/dependabot.yml)
 # proposes updates.
 
