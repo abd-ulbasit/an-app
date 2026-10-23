@@ -55,7 +55,10 @@ Replace `<ACCOUNT_ID>` with the AWS account ID.
    `repo:abd-ulbasit@90849025/an-app@1047349733:ref:refs/heads/main`). If
    this repository is ever renamed or transferred, update the condition.
 
-3. Attach this permissions policy (push to the two repositories only):
+3. Attach this permissions policy (push to the two repositories only).
+   `ecr:DescribeImages` lets the workflow see that a commit's image is
+   already in ECR, so a re-run skips it instead of failing on the immutable
+   tag (step 6):
 
    ```json
    {
@@ -74,6 +77,7 @@ Replace `<ACCOUNT_ID>` with the AWS account ID.
            "ecr:BatchCheckLayerAvailability",
            "ecr:BatchGetImage",
            "ecr:CompleteLayerUpload",
+           "ecr:DescribeImages",
            "ecr:InitiateLayerUpload",
            "ecr:PutImage",
            "ecr:UploadLayerPart"
@@ -95,7 +99,9 @@ Replace `<ACCOUNT_ID>` with the AWS account ID.
    IAM access key that was stored there.
 
 6. Set both ECR repositories to immutable tags, so a pushed `<git sha>` tag
-   can never be overwritten:
+   can never be overwritten. A re-run of the workflow for the same commit
+   still works: it keeps an image that is already in ECR and builds only
+   the missing one.
 
    ```sh
    aws ecr put-image-tag-mutability --region ap-south-1 \

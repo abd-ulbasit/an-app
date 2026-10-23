@@ -51,19 +51,33 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
 
-      - name: Build and push backend image
+      # ECR tags are immutable (docs/ci-aws-oidc.md, step 6). On a re-run
+      # after a partial failure, the image for this commit may already be in
+      # ECR. A rebuild has a different digest and its push would be rejected,
+      # so an image that already exists is kept and not rebuilt.
+      - name: Build and push images
         env:
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
-          docker build -t "$REGISTRY/backend:$IMAGE_TAG" ./backend
-          docker push "$REGISTRY/backend:$IMAGE_TAG"
-
-      - name: Build and push frontend image
-        env:
-          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        run: |
-          docker build -t "$REGISTRY/frontend:$IMAGE_TAG" ./frontend
-          docker push "$REGISTRY/frontend:$IMAGE_TAG"
+          for app in backend frontend; do
+            echo "::group::$app"
+            if out=$(aws ecr describe-images --repository-name "$app" \
+                --image-ids imageTag="$IMAGE_TAG" \
+                --query 'imageDetails[0].imageDigest' --output text 2>&1); then
+              echo "$app:$IMAGE_TAG is already in ECR ($out), skipping the build."
+            else
+              case "$out" in
+                *ImageNotFoundException*) ;;
+                *)
+                  echo "::warning::Could not check ECR for $app:$IMAGE_TAG, building and pushing anyway."
+                  echo "$out"
+                  ;;
+              esac
+              docker build -t "$REGISTRY/$app:$IMAGE_TAG" "./$app"
+              docker push "$REGISTRY/$app:$IMAGE_TAG"
+            fi
+            echo "::endgroup::"
+          done
 
   # Point the Deployments at the new tag so Argo CD rolls the pods. This is the
   # only job that can write to the repository, and it never sees AWS
