@@ -94,3 +94,12 @@ Replace `<ACCOUNT_ID>` with the AWS account ID.
    `ECR_FRONTEND`, `GH_PAT` and `GH_TOKEN`, then deactivate and delete the
    IAM access key that was stored there.
 
+6. Set both ECR repositories to immutable tags, so a pushed `<git sha>` tag
+   can never be overwritten:
+
+   ```sh
+   aws ecr put-image-tag-mutability --region ap-south-1 \
+     --repository-name backend --image-tag-mutability IMMUTABLE
+   aws ecr put-image-tag-mutability --region ap-south-1 \
+     --repository-name frontend --image-tag-mutability IMMUTABLE
+   ```

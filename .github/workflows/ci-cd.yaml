@@ -4,9 +4,22 @@ on:
   push:
     branches:
       - main
+    # Only changes that affect the images trigger a build. This also means the
+    # manifest bump committed by update-manifests (k8s/ only) never retriggers
+    # the workflow, even if it is ever pushed with a token other than
+    # GITHUB_TOKEN.
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - ".github/workflows/ci-cd.yaml"
 
 # Nothing by default; each job asks for exactly what it needs.
 permissions: {}
+
+# One deploy at a time. A newer push waits instead of racing the manifest bump.
+concurrency:
+  group: ci-cd-main
+  cancel-in-progress: false
 
 jobs:
   build-and-push:
@@ -16,6 +29,9 @@ jobs:
       id-token: write # request the GitHub OIDC token for AWS STS
     env:
       AWS_REGION: ap-south-1
+      # Immutable tag: the commit that produced the image. Rolling back is a
+      # git revert of the manifest bump; no tag is ever overwritten.
+      IMAGE_TAG: ${{ github.sha }}
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -39,12 +55,46 @@ jobs:
         env:
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
-          docker build -t "$REGISTRY/backend:latest" ./backend
-          docker push "$REGISTRY/backend:latest"
+          docker build -t "$REGISTRY/backend:$IMAGE_TAG" ./backend
+          docker push "$REGISTRY/backend:$IMAGE_TAG"
 
       - name: Build and push frontend image
         env:
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
-          docker build -t "$REGISTRY/frontend:latest" ./frontend
-          docker push "$REGISTRY/frontend:latest"
+          docker build -t "$REGISTRY/frontend:$IMAGE_TAG" ./frontend
+          docker push "$REGISTRY/frontend:$IMAGE_TAG"
+
+  # Point the Deployments at the new tag so Argo CD rolls the pods. This is the
+  # only job that can write to the repository, and it never sees AWS
+  # credentials.
+  update-manifests:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # push the manifest bump to main
+    env:
+      IMAGE_TAG: ${{ github.sha }}
+    steps:
+      # Checks out the commit that was built (github.sha). If main has moved
+      # on since, the push below is rejected as non-fast-forward and the newer
+      # run deploys instead, so an older build never overwrites a newer one.
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set image tags in the Deployments
+        run: |
+          sed -i -E "s#(\.amazonaws\.com/backend):[^[:space:]\"']+#\1:${IMAGE_TAG}#" k8s/backend-deployment.yaml
+          sed -i -E "s#(\.amazonaws\.com/frontend):[^[:space:]\"']+#\1:${IMAGE_TAG}#" k8s/frontend-deployment.yaml
+          git diff --stat
+
+      - name: Commit and push
+        run: |
+          if git diff --quiet; then
+            echo "Manifests already point at ${IMAGE_TAG}"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "deploy: set backend and frontend images to ${IMAGE_TAG}"
+          git push origin HEAD:refs/heads/main

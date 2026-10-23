@@ -33,12 +33,18 @@
    ```
 
 5. **Build and push Docker images (if not using CI/CD)**
+
+   Tag images with the git commit, never `latest`, and point the Deployments
+   at that tag. This is what CI does on every push to `main`.
    ```sh
-   docker build -t <ECR_BACKEND>:latest ./backend
-   docker build -t <ECR_FRONTEND>:latest ./frontend
+   TAG=$(git rev-parse HEAD)
+   docker build -t <ECR_BACKEND>:$TAG ./backend
+   docker build -t <ECR_FRONTEND>:$TAG ./frontend
    aws ecr get-login-password --region <region> | docker login --username AWS --password-stdin <account>.dkr.ecr.<region>.amazonaws.com
-   docker push <ECR_BACKEND>:latest
-   docker push <ECR_FRONTEND>:latest
+   docker push <ECR_BACKEND>:$TAG
+   docker push <ECR_FRONTEND>:$TAG
+   # then set the image tag in k8s/backend-deployment.yaml and
+   # k8s/frontend-deployment.yaml to $TAG and commit
    ```
 
 6. **Create the Kubernetes secret for the database**
@@ -78,7 +84,10 @@
 
 ## Notes
 - Do NOT commit `k8s/db-secret.yaml` or `.env` to git (both are in .gitignore).
-- The CI/CD pipeline builds and pushes images on every push to `main` once the
-  AWS OIDC role and the `AWS_ROLE_ARN` repository variable exist (see
-  [docs/ci-aws-oidc.md](docs/ci-aws-oidc.md)). It uses no stored AWS keys.
+- The CI/CD pipeline builds and pushes images when `backend/`, `frontend/` or
+  the workflow change on `main`, once the AWS OIDC role and the `AWS_ROLE_ARN`
+  repository variable exist (see [docs/ci-aws-oidc.md](docs/ci-aws-oidc.md)).
+  It uses no stored AWS keys. Images are tagged with the commit SHA, and a
+  second job commits that tag into the k8s Deployments so Argo CD rolls the
+  pods. Roll back by reverting that commit.
 - For ArgoCD API sync from CI/CD, expose ArgoCD server via LoadBalancer/Ingress and use an API token.
