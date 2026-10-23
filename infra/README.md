@@ -77,7 +77,12 @@ and `s3:PutObject` on `infra/terraform.tfstate`, and `s3:GetObject`,
    terraform init
    terraform plan -out tfplan
    terraform apply tfplan
+   rm tfplan
    ```
+
+   A saved plan contains a full copy of the state, including sensitive
+   values such as the EKS auth token, so treat it like the state file.
+   `.gitignore` excludes `tfplan` and `*.tfplan` in every directory.
 
 `.terraform.lock.hcl` is committed and holds provider hashes for
 `linux_amd64` and `darwin_arm64`. If you add or upgrade a provider,

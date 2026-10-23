@@ -28,6 +28,7 @@
    terraform init
    terraform plan -out tfplan
    terraform apply tfplan
+   rm tfplan   # a saved plan holds a full copy of the state
    cd ..
    ```
    The remaining commands run from the repository root.
