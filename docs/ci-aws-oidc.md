@@ -93,10 +93,19 @@ Replace `<ACCOUNT_ID>` with the AWS account ID.
 
 4. Set the repository variable `AWS_ROLE_ARN` to the role ARN.
 
-5. Remove what the old pipeline needed: delete the repository secrets
-   `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `ECR_BACKEND`,
-   `ECR_FRONTEND`, `GH_PAT` and `GH_TOKEN`, then deactivate and delete the
-   IAM access key that was stored there.
+5. Remove what the old pipeline needed. Deleting a repository secret does
+   not invalidate the credential it held, so revoke the credentials first:
+
+   1. Revoke the GitHub personal access token(s) that were stored in
+      `GH_PAT` and `GH_TOKEN`, at <https://github.com/settings/tokens>
+      (classic tokens) or
+      <https://github.com/settings/personal-access-tokens> (fine-grained
+      tokens). No workflow here needs a personal token.
+   2. Deactivate and then delete the IAM access key that was stored in
+      `AWS_ACCESS_KEY_ID` (IAM > Users > Security credentials).
+   3. Delete the repository secrets `AWS_ACCESS_KEY_ID`,
+      `AWS_SECRET_ACCESS_KEY`, `ECR_BACKEND`, `ECR_FRONTEND`, `GH_PAT` and
+      `GH_TOKEN`.
 
 6. Set both ECR repositories to immutable tags, so a pushed `<git sha>` tag
    can never be overwritten. A re-run of the workflow for the same commit
