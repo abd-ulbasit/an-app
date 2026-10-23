@@ -27,12 +27,23 @@ spec:
                 secretKeyRef:
                   name: db-secret
                   key: RDS_ENDPOINT
+            # Require TLS and verify the RDS certificate and hostname.
+            - name: PGSSLMODE
+              value: "verify-full"
+            - name: PGSSLROOTCERT
+              value: /etc/rds-ca/rds-ca-bundle.pem
           command: ["psql", "-v", "ON_ERROR_STOP=1", "-f", "/init/init.sql"]
           volumeMounts:
             - name: init-sql
               mountPath: /init
+            - name: rds-ca
+              mountPath: /etc/rds-ca
+              readOnly: true
       restartPolicy: OnFailure
       volumes:
         - name: init-sql
           configMap:
             name: db-init-sql
+        - name: rds-ca
+          configMap:
+            name: rds-ca-bundle

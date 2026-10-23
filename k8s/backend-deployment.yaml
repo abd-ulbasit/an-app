@@ -33,3 +33,19 @@ spec:
                 secretKeyRef:
                   name: db-secret
                   key: RDS_ENDPOINT
+            # Encrypt and verify the DB connection (CA + hostname). RDS for
+            # PostgreSQL 15+ rejects non-TLS connections by default
+            # (rds.force_ssl=1). node-postgres maps PGSSLMODE to ssl=true and
+            # Node trusts the extra RDS CAs from NODE_EXTRA_CA_CERTS.
+            - name: PGSSLMODE
+              value: "verify-full"
+            - name: NODE_EXTRA_CA_CERTS
+              value: /etc/rds-ca/rds-ca-bundle.pem
+          volumeMounts:
+            - name: rds-ca
+              mountPath: /etc/rds-ca
+              readOnly: true
+      volumes:
+        - name: rds-ca
+          configMap:
+            name: rds-ca-bundle
