@@ -11,15 +11,37 @@ updates:
       actions:
         patterns: ["*"]
 
+  # Application base images (Node.js and nginx).
   - package-ecosystem: docker
     directories:
       - /backend
       - /frontend
-      - /db
     schedule:
       interval: monthly
     groups:
       base-images:
+        patterns: ["*"]
+
+  # PostgreSQL images: the local compose database (db/Dockerfile) and the
+  # psql client of the db-init Job (k8s/db-init-job.yaml). Minor and patch
+  # updates come through; major versions are changed by hand, because the
+  # local database must match its existing db_data volume and the Job's
+  # client must match the RDS engine major in infra/rds.tf.
+  - package-ecosystem: docker
+    directories:
+      - /db
+      - /k8s
+    schedule:
+      interval: monthly
+    ignore:
+      - dependency-name: "postgres"
+        update-types: ["version-update:semver-major"]
+      # k8s/ also references this repository's own ECR images. CI sets their
+      # tags (one per commit), so Dependabot must not touch them.
+      - dependency-name: "*backend"
+      - dependency-name: "*frontend"
+    groups:
+      postgres:
         patterns: ["*"]
 
   - package-ecosystem: npm

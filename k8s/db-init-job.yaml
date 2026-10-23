@@ -16,6 +16,8 @@ spec:
       containers:
         - name: psql
           # Client only; major 17 matches the RDS engine in infra/rds.tf.
+          # Dependabot proposes 17.x minor and patch updates (tag and
+          # digest). Change the major by hand, together with the RDS engine.
           image: postgres:17.11-alpine3.24@sha256:eee6c6e1b0894fa4fe0075eb054af9fd1cf39a35321c2d4110626cfe506411fb
           # psql reads the standard libpq PG* variables, so the password is
           # never part of the command line (visible in ps and /proc).

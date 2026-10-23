@@ -1,6 +1,7 @@
 # Local development database for docker compose. Stays on major 15 so an
 # existing db_data volume keeps working (a new major cannot open an old data
-# directory). The digest pins the exact image; Dependabot proposes updates.
+# directory). The digest pins the exact image; Dependabot proposes 15.x
+# minor and patch updates and is configured to skip new majors.
 FROM postgres:15.19-alpine3.24@sha256:a8e042598834300dfaa17a54f695b87b7f25d3490433bbbe2ef3bffbb9747f24
 COPY init.sql /docker-entrypoint-initdb.d/
 # The official entrypoint starts as root only to fix data-directory ownership
