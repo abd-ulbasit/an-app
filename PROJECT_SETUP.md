@@ -107,4 +107,8 @@
   It uses no stored AWS keys. Images are tagged with the commit SHA, and a
   second job commits that tag into the k8s Deployments so Argo CD rolls the
   pods. Roll back by reverting that commit.
+- That second job pushes straight to `main`. A rule on `main` that requires
+  pull requests, status checks or signed commits blocks it and stops every
+  deploy; see "Rules on `main` and the deploy push" in
+  [docs/ci-aws-oidc.md](docs/ci-aws-oidc.md) before adding one.
 - For ArgoCD API sync from CI/CD, expose ArgoCD server via LoadBalancer/Ingress and use an API token.

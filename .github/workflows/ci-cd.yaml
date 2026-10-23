@@ -111,4 +111,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -am "deploy: set backend and frontend images to ${IMAGE_TAG}"
+          # A rule on main that requires pull requests, status checks or
+          # signed commits rejects this push. See docs/ci-aws-oidc.md,
+          # "Rules on main and the deploy push".
           git push origin HEAD:refs/heads/main

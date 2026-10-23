@@ -118,3 +118,28 @@ Replace `<ACCOUNT_ID>` with the AWS account ID.
    aws ecr put-image-tag-mutability --region ap-south-1 \
      --repository-name frontend --image-tag-mutability IMMUTABLE
    ```
+
+## Rules on `main` and the deploy push
+
+The `update-manifests` job deploys by pushing the image-tag commit straight
+to `main` with the workflow's `GITHUB_TOKEN`
+(`git push origin HEAD:refs/heads/main`). Rules that block deleting `main`
+or force-pushing to it are fine, because that push is a normal
+fast-forward. A rule that requires pull requests, status checks or signed
+commits on `main` rejects it: every deploy then fails at the "Commit and
+push" step, after the images are already in ECR.
+
+If you add such a rule, change the deploy path in the same step. Either:
+
+- push with a dedicated GitHub App instead of `GITHUB_TOKEN` (for example
+  through `actions/create-github-app-token`) and add that app to the
+  ruleset's bypass list. A push made with an app token starts workflows,
+  unlike one made with `GITHUB_TOKEN`; the `paths` filter in
+  `ci-cd.yaml` already keeps the `k8s/`-only commit from rebuilding; or
+- change `update-manifests` to open a pull request with the tag change and
+  enable auto-merge, so the deploy passes the same rules as any other
+  change. This needs `pull-requests: write` on that job, and "Allow
+  auto-merge" and "Allow GitHub Actions to create and approve pull
+  requests" in the repository settings. A pull request opened with
+  `GITHUB_TOKEN` starts no workflows, so if the rule requires status
+  checks, open it with a GitHub App token instead.
