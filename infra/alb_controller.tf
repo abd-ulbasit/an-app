@@ -29,17 +29,15 @@ resource "aws_iam_role_policy_attachment" "alb_ingress_controller" {
 }
 
 resource "aws_iam_openid_connect_provider" "eks" {
-  url             = data.aws_eks_cluster.cluster.identity[0].oidc[0].issuer
+  url             = aws_eks_cluster.main.identity[0].oidc[0].issuer
   client_id_list  = ["sts.amazonaws.com"]
   thumbprint_list = [data.tls_certificate.oidc_thumbprint.certificates[0].sha1_fingerprint]
 }
 
-data "aws_eks_cluster" "cluster" {
-  name = var.cluster_name
-}
-
+# Reads the issuer from the cluster resource (see main.tf for why this is not
+# a data "aws_eks_cluster" lookup).
 data "tls_certificate" "oidc_thumbprint" {
-  url = data.aws_eks_cluster.cluster.identity[0].oidc[0].issuer
+  url = aws_eks_cluster.main.identity[0].oidc[0].issuer
 }
 
 resource "kubernetes_service_account" "alb_ingress_controller" {

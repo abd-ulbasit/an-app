@@ -11,12 +11,6 @@ variable "aws_region" {
 }
 
 
-variable "kubeconfig_path" {
-  description = "Path to kubeconfig file for Helm provider"
-  type        = string
-  default     = "~/.kube/config"
-}
-
 variable "db_name" {
   description = "RDS database name"
   type        = string
