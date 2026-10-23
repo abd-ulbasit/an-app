@@ -78,5 +78,7 @@
 
 ## Notes
 - Do NOT commit `k8s/db-secret.yaml` or `.env` to git (both are in .gitignore).
-- CI/CD pipeline will automate image build/push if configured.
+- The CI/CD pipeline builds and pushes images on every push to `main` once the
+  AWS OIDC role and the `AWS_ROLE_ARN` repository variable exist (see
+  [docs/ci-aws-oidc.md](docs/ci-aws-oidc.md)). It uses no stored AWS keys.
 - For ArgoCD API sync from CI/CD, expose ArgoCD server via LoadBalancer/Ingress and use an API token.

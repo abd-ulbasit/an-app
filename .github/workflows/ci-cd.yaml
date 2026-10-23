@@ -1,47 +1,50 @@
-
 name: CI/CD Pipeline
-permissions:
-  contents: write
 
 on:
   push:
     branches:
       - main
 
+# Nothing by default; each job asks for exactly what it needs.
+permissions: {}
+
 jobs:
-  build-and-deploy:
+  build-and-push:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read # checkout
+      id-token: write # request the GitHub OIDC token for AWS STS
     env:
       AWS_REGION: ap-south-1
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install Terraform
-        uses: hashicorp/setup-terraform@v2
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          persist-credentials: false
+
+      # Short-lived credentials through GitHub OIDC; no stored AWS keys.
+      # vars.AWS_ROLE_ARN is the IAM role described in docs/ci-aws-oidc.md.
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          role-session-name: an-app-ci-${{ github.run_id }}
           aws-region: ${{ env.AWS_REGION }}
-
-
 
       - name: Login to Amazon ECR
         id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
 
       - name: Build and push backend image
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
-          docker build -t 558162184856.dkr.ecr.ap-south-1.amazonaws.com/backend:latest ./backend
-          docker push 558162184856.dkr.ecr.ap-south-1.amazonaws.com/backend:latest
+          docker build -t "$REGISTRY/backend:latest" ./backend
+          docker push "$REGISTRY/backend:latest"
 
       - name: Build and push frontend image
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
-          docker build -t 558162184856.dkr.ecr.ap-south-1.amazonaws.com/frontend:latest ./frontend
-          docker push 558162184856.dkr.ecr.ap-south-1.amazonaws.com/frontend:latest
-
+          docker build -t "$REGISTRY/frontend:latest" ./frontend
+          docker push "$REGISTRY/frontend:latest"
