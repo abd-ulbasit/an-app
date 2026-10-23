@@ -1,7 +1,7 @@
 # Project Setup Instructions
 
 ## Prerequisites
-- AWS CLI
+- AWS CLI and jq
 - Docker
 - kubectl
 - Terraform
@@ -50,17 +50,28 @@
 6. **Create the Kubernetes secret for the database**
 
    `db-secret` is not stored in git and Argo CD does not manage it. Create it
-   directly in the cluster. `RDS_ENDPOINT` is the RDS hostname without the
-   `:5432` port suffix, and `POSTGRES_PASSWORD` is the RDS master password:
+   directly in the cluster. RDS generates the master password and keeps it
+   in Secrets Manager, so copy it from there. `RDS_ENDPOINT` is the hostname
+   without the `:5432` suffix (the `rds_address` output):
    ```sh
-   read -rs DB_PASSWORD   # type the RDS master password
-   printf '%s' "$DB_PASSWORD" | kubectl create secret generic db-secret \
-     --from-literal=RDS_ENDPOINT='<rds-hostname>' \
-     --from-file=POSTGRES_PASSWORD=/dev/stdin
+   aws secretsmanager get-secret-value \
+       --secret-id "$(terraform -chdir=infra output -raw rds_master_user_secret_arn)" \
+       --query SecretString --output text \
+     | jq -j .password \
+     | kubectl create secret generic db-secret \
+         --from-literal=RDS_ENDPOINT="$(terraform -chdir=infra output -raw rds_address)" \
+         --from-file=POSTGRES_PASSWORD=/dev/stdin
    ```
-   Passing the password through stdin keeps it out of your shell history and
-   the kubectl command line. `printf '%s'` avoids a trailing newline, which
-   would otherwise become part of the password.
+   The password goes straight from Secrets Manager into the Secret through
+   stdin, so it never appears in shell history, a variable, a file or the
+   kubectl command line. `jq -j` prints it without a trailing newline.
+
+   Secrets Manager rotates this password every 7 days by default, and the
+   copy in `db-secret` does not follow automatically. After a rotation,
+   repeat the command above (after `kubectl delete secret db-secret`) and run
+   `kubectl rollout restart deployment/backend`. See
+   [docs/adr/0001-database-credentials.md](docs/adr/0001-database-credentials.md)
+   for the planned automatic sync.
 
    For local `docker compose`, copy `.env.example` to `.env` and set
    `POSTGRES_PASSWORD` there. `.env` is gitignored.

@@ -31,13 +31,20 @@ kubectl port-forward svc/argocd-server -n argocd 8080:443
 argocd login localhost:8080 --username admin --password {PASSWORD} --insecure
 
 # 8. Create db-secret. It is not in git and Argo CD does not manage it.
-#    RDS_ENDPOINT is the RDS hostname WITHOUT the :5432 suffix.
-#    The password goes through stdin (printf adds no trailing newline), so it
-#    is not in shell history or the kubectl command line.
-read -rs DB_PASSWORD   # type the RDS master password
-printf '%s' "$DB_PASSWORD" | kubectl create secret generic db-secret \
-  --from-literal=RDS_ENDPOINT='<rds-hostname>' \
-  --from-file=POSTGRES_PASSWORD=/dev/stdin
+#    The RDS master password lives in Secrets Manager (RDS-managed); it is
+#    piped straight into the Secret, never into a variable, file or argv.
+#    RDS_ENDPOINT is the hostname WITHOUT the :5432 suffix (rds_address).
+#    Secrets Manager rotates the password every 7 days by default: after a
+#    rotation, `kubectl delete secret db-secret`, rerun this, then
+#    `kubectl rollout restart deployment/backend`
+#    (docs/adr/0001-database-credentials.md).
+aws secretsmanager get-secret-value \
+    --secret-id "$(terraform -chdir=infra output -raw rds_master_user_secret_arn)" \
+    --query SecretString --output text \
+  | jq -j .password \
+  | kubectl create secret generic db-secret \
+      --from-literal=RDS_ENDPOINT="$(terraform -chdir=infra output -raw rds_address)" \
+      --from-file=POSTGRES_PASSWORD=/dev/stdin
 
 # 9. Apply ArgoCD app manifest
 kubectl apply -f k8s/argocd-app.yaml
