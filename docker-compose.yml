@@ -1,11 +1,14 @@
 version: "3.8"
+# Credentials come from .env (copy .env.example to .env and set a password).
+# Compose reads .env automatically; the :? form stops `docker compose up`
+# with a clear error if the password is missing or empty.
 services:
     db:
         build: ./db
         environment:
-            POSTGRES_DB: guestbook
-            POSTGRES_USER: postgres
-            POSTGRES_PASSWORD: postgres
+            POSTGRES_DB: ${POSTGRES_DB:-guestbook}
+            POSTGRES_USER: ${POSTGRES_USER:-postgres}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env (copy .env.example)}
         ports:
             - "5432:5432"
         volumes:
@@ -13,9 +16,9 @@ services:
     backend:
         build: ./backend
         environment:
-            POSTGRES_DB: guestbook
-            POSTGRES_USER: postgres
-            POSTGRES_PASSWORD: postgres
+            POSTGRES_DB: ${POSTGRES_DB:-guestbook}
+            POSTGRES_USER: ${POSTGRES_USER:-postgres}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env (copy .env.example)}
             POSTGRES_HOST: db
         ports:
             - "4000:4000"

@@ -22,8 +22,12 @@ spec:
               value: "guestbook"
             - name: POSTGRES_USER
               value: "postgres"
+            # db-secret is created out-of-band (k8s/setup.md), never from git.
             - name: POSTGRES_PASSWORD
-              value: "postgres123"
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: POSTGRES_PASSWORD
             - name: POSTGRES_HOST
               valueFrom:
                 secretKeyRef:

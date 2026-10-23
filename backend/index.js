@@ -6,11 +6,18 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// The password has no default: a missing secret should stop the process
+// instead of silently falling back to a well-known value.
+if (!process.env.POSTGRES_PASSWORD) {
+    console.error("POSTGRES_PASSWORD is not set; refusing to start.");
+    process.exit(1);
+}
+
 const pool = new Pool({
     user: process.env.POSTGRES_USER || "postgres",
     host: process.env.POSTGRES_HOST || "db",
     database: process.env.POSTGRES_DB || "guestbook",
-    password: process.env.POSTGRES_PASSWORD || "postgres",
+    password: process.env.POSTGRES_PASSWORD,
     port: 5432,
 });
 

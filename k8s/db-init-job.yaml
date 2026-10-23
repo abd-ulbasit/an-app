@@ -9,22 +9,25 @@ spec:
       containers:
         - name: psql
           image: postgres:15
+          # psql reads the standard libpq PG* variables, so the password is
+          # never part of the command line (visible in ps and /proc).
           env:
-            - name: POSTGRES_DB
+            - name: PGDATABASE
               value: "guestbook"
-            - name: POSTGRES_USER
+            - name: PGUSER
               value: "postgres"
-            - name: POSTGRES_PASSWORD
-              value: "postgres123"
-            - name: POSTGRES_HOST
+            # db-secret is created out-of-band (k8s/setup.md), never from git.
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: POSTGRES_PASSWORD
+            - name: PGHOST
               valueFrom:
                 secretKeyRef:
                   name: db-secret
                   key: RDS_ENDPOINT
-          command: ["/bin/sh", "-c"]
-          args:
-            - |
-              psql "host=$POSTGRES_HOST dbname=$POSTGRES_DB user=$POSTGRES_USER password=$POSTGRES_PASSWORD" < /init/init.sql
+          command: ["psql", "-v", "ON_ERROR_STOP=1", "-f", "/init/init.sql"]
           volumeMounts:
             - name: init-sql
               mountPath: /init

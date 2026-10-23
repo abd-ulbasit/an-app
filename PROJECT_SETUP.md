@@ -41,10 +41,23 @@
    docker push <ECR_FRONTEND>:latest
    ```
 
-6. **Create Kubernetes secret for DB URL**
+6. **Create the Kubernetes secret for the database**
+
+   `db-secret` is not stored in git and Argo CD does not manage it. Create it
+   directly in the cluster. `RDS_ENDPOINT` is the RDS hostname without the
+   `:5432` port suffix, and `POSTGRES_PASSWORD` is the RDS master password:
    ```sh
-   kubectl apply -f k8s/db-secret.yaml
+   read -rs DB_PASSWORD   # type the RDS master password
+   printf '%s' "$DB_PASSWORD" | kubectl create secret generic db-secret \
+     --from-literal=RDS_ENDPOINT='<rds-hostname>' \
+     --from-file=POSTGRES_PASSWORD=/dev/stdin
    ```
+   Passing the password through stdin keeps it out of your shell history and
+   the kubectl command line. `printf '%s'` avoids a trailing newline, which
+   would otherwise become part of the password.
+
+   For local `docker compose`, copy `.env.example` to `.env` and set
+   `POSTGRES_PASSWORD` there. `.env` is gitignored.
 
 7. **Apply/sync manifests with ArgoCD**
    - Port-forward ArgoCD server:
@@ -64,6 +77,6 @@
    ```
 
 ## Notes
-- Do NOT commit `k8s/db-secret.yaml` to git (it's in .gitignore).
+- Do NOT commit `k8s/db-secret.yaml` or `.env` to git (both are in .gitignore).
 - CI/CD pipeline will automate image build/push if configured.
 - For ArgoCD API sync from CI/CD, expose ArgoCD server via LoadBalancer/Ingress and use an API token.
