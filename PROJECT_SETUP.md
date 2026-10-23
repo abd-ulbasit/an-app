@@ -111,4 +111,7 @@
   pull requests, status checks or signed commits blocks it and stops every
   deploy; see "Rules on `main` and the deploy push" in
   [docs/ci-aws-oidc.md](docs/ci-aws-oidc.md) before adding one.
-- For ArgoCD API sync from CI/CD, expose ArgoCD server via LoadBalancer/Ingress and use an API token.
+- CI never talks to Argo CD. It commits the new image tag, and Argo CD
+  auto-sync picks it up from git. Keep `argocd-server` as a ClusterIP
+  Service and reach it with `kubectl port-forward` (step 7); do not expose
+  it through a LoadBalancer or Ingress or create API tokens for CI.
