@@ -21,11 +21,16 @@
    - Ensure your IAM user has permissions for ECR, EKS, RDS, S3, etc.
 
 3. **Provision infrastructure with Terraform**
+
+   The S3 state bucket must exist first; see [infra/README.md](infra/README.md).
    ```sh
    cd infra
    terraform init
-   terraform apply
+   terraform plan -out tfplan
+   terraform apply tfplan
+   cd ..
    ```
+   The remaining commands run from the repository root.
 
 4. **Install ArgoCD using Ansible**
    ```sh
@@ -83,7 +88,7 @@
      ```
    - Login to ArgoCD CLI:
      ```sh
-     argocd login localhost:8080 --username admin --password <password> --insecure
+     argocd login localhost:8080 --username admin --insecure   # prompts for the password
      argocd app sync guestbook-app
      ```
 
